@@ -1,0 +1,11 @@
+{
+  "dataset_root": "/Users/matthew/Projects/cv_homework/data/Self-Driving-Car-3",
+  "images_dir": "/Users/matthew/Projects/cv_homework/data/Self-Driving-Car-3/export/images",
+  "labels_dir": "/Users/matthew/Projects/cv_homework/data/Self-Driving-Car-3/export/labels",
+  "split_dir": "/Users/matthew/Projects/cv_homework/splits/self_driving_car",
+  "counts": {
+    "train": 20860,
+    "val": 5960,
+    "test": 2980
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "model_path": "/Users/matthew/Projects/cv_homework/models/best_yolo_auto_trasnport.pt",
+  "data": "/Users/matthew/Projects/cv_homework/splits/self_driving_car/data.yaml",
+  "split": "test",
+  "run_dir": "/Users/matthew/Projects/cv_homework/runs/20260325_135955",
+  "metrics": {
+    "results_dict": {
+      "metrics/precision(B)": 0.8452321718489503,
+      "metrics/recall(B)": 0.5802871695067574,
+      "metrics/mAP50(B)": 0.6585353525033707,
+      "metrics/mAP50-95(B)": 0.35901694278208857,
+      "fitness": 0.35901694278208857
+    },
+    "speed": {
+      "preprocess": 0.4916135174548097,
+      "inference": 120.83483822888894,
+      "loss": 2.904386972952259e-05,
+      "postprocess": 0.3569887875619926
+    },
+    "box_mean_results": [
+      0.8452321718489503,
+      0.5802871695067574,
+      0.6585353525033707,
+      0.35901694278208857
+    ],
+    "box_fitness": 0.35901694278208857
+  }
+}
