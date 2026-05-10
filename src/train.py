@@ -1,23 +1,21 @@
-import argparse
+import click
 import copy
-import json
 import random
-from datetime import datetime
 from pathlib import Path
 
 import yaml
 
 from src.model import get_model
-
-
-ROOT = Path(__file__).resolve().parent.parent
-
-
-def resolve_path(value, base=ROOT):
-    path = Path(value)
-    if path.is_absolute():
-        return path.resolve()
-    return (Path(base) / path).resolve()
+from src.mlflow_logger import log_metrics, log_params, mlflow_run
+from src.utils import (
+    ROOT,
+    extract_metrics,
+    make_run_name,
+    resolve_path,
+    source_key,
+    write_json,
+    write_yaml,
+)
 
 
 def resolve_model_weights(value):
@@ -57,6 +55,7 @@ def load_config(config_path):
     data["train_ratio"] = data.get("train_ratio", 0.7)
     data["val_ratio"] = data.get("val_ratio", 0.2)
     data["test_ratio"] = data.get("test_ratio", 0.1)
+    data["split_unit"] = data.get("split_unit", "image")
 
     model = config.setdefault("model", {})
     model["weights"] = resolve_model_weights(model.get("weights", "yolov8n.pt"))
@@ -117,74 +116,6 @@ def get_split_summary_path(config):
     return Path(config["data"]["split_dir"]) / "split_summary.json"
 
 
-def make_run_name(name=None):
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    name = (name or "").strip().replace(" ", "_")
-    if not name:
-        return stamp
-    return f"{stamp}_{name}"
-
-
-def write_json(path, payload):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-
-
-def write_yaml(path, payload):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
-
-
-def to_jsonable(value):
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return value
-    if isinstance(value, Path):
-        return str(value)
-    if isinstance(value, dict):
-        return {str(key): to_jsonable(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple, set)):
-        return [to_jsonable(item) for item in value]
-    if hasattr(value, "tolist"):
-        return value.tolist()
-    if hasattr(value, "item"):
-        try:
-            return value.item()
-        except Exception:
-            pass
-    return str(value)
-
-
-def extract_metrics(metrics):
-    if metrics is None:
-        return {}
-    if isinstance(metrics, dict):
-        return to_jsonable(metrics)
-
-    payload = {}
-
-    results_dict = getattr(metrics, "results_dict", None)
-    if isinstance(results_dict, dict):
-        payload["results_dict"] = to_jsonable(results_dict)
-
-    speed = getattr(metrics, "speed", None)
-    if speed is not None:
-        payload["speed"] = to_jsonable(speed)
-
-    box_metrics = getattr(metrics, "box", None)
-    if box_metrics is not None:
-        mean_results = getattr(box_metrics, "mean_results", None)
-        if callable(mean_results):
-            payload["box_mean_results"] = to_jsonable(mean_results())
-
-        fitness = getattr(box_metrics, "fitness", None)
-        if callable(fitness):
-            payload["box_fitness"] = to_jsonable(fitness())
-
-    return payload
-
-
 def prepare_splits(config):
     data = config["data"]
     dataset_root = Path(data["dataset_root"])
@@ -192,6 +123,10 @@ def prepare_splits(config):
     labels_dir = Path(data["labels_dir"])
     split_dir = Path(data["split_dir"])
     meta_file = Path(data["meta_file"])
+    split_unit = data.get("split_unit", "image")
+
+    if split_unit not in ("image", "source_key"):
+        raise ValueError(f"Unknown split_unit: {split_unit!r}; expected 'image' or 'source_key'")
 
     if not dataset_root.exists():
         raise FileNotFoundError(f"Dataset root does not exist: {dataset_root}")
@@ -210,17 +145,36 @@ def prepare_splits(config):
         meta = yaml.safe_load(f) or {}
 
     image_paths = sorted([path for path in images_dir.iterdir() if path.is_file() and path.suffix.lower() in {".jpg", ".jpeg", ".png"}])
-    random.Random(data["split_seed"]).shuffle(image_paths)
 
-    total_count = len(image_paths)
-    train_count = int(total_count * data["train_ratio"])
-    val_count = int(total_count * data["val_ratio"])
-
-    splits = {
-        "train": image_paths[:train_count],
-        "val": image_paths[train_count:train_count + val_count],
-        "test": image_paths[train_count + val_count:],
-    }
+    if split_unit == "image":
+        items = list(image_paths)
+        random.Random(data["split_seed"]).shuffle(items)
+        total_count = len(items)
+        train_count = int(total_count * data["train_ratio"])
+        val_count = int(total_count * data["val_ratio"])
+        splits = {
+            "train": items[:train_count],
+            "val": items[train_count:train_count + val_count],
+            "test": items[train_count + val_count:],
+        }
+    else:
+        groups = {}
+        for path in image_paths:
+            groups.setdefault(source_key(path), []).append(path)
+        group_keys = sorted(groups.keys())
+        random.Random(data["split_seed"]).shuffle(group_keys)
+        total_groups = len(group_keys)
+        train_groups = int(total_groups * data["train_ratio"])
+        val_groups = int(total_groups * data["val_ratio"])
+        split_keys = {
+            "train": group_keys[:train_groups],
+            "val": group_keys[train_groups:train_groups + val_groups],
+            "test": group_keys[train_groups + val_groups:],
+        }
+        splits = {
+            name: sorted(path for key in keys for path in groups[key])
+            for name, keys in split_keys.items()
+        }
 
     split_dir.mkdir(parents=True, exist_ok=True)
 
@@ -248,6 +202,8 @@ def prepare_splits(config):
         "images_dir": str(images_dir.resolve()),
         "labels_dir": str(labels_dir.resolve()),
         "split_dir": str(split_dir.resolve()),
+        "split_unit": split_unit,
+        "split_seed": data["split_seed"],
         "counts": {name: len(values) for name, values in splits.items()},
     }
 
@@ -333,55 +289,75 @@ def run_training(config, config_path=None, name_override=None):
     if train_config["device"] not in (None, "", []):
         train_args["device"] = train_config["device"]
 
-    train_results = model.train(**train_args)
-    run_dir = Path(getattr(train_results, "save_dir", project_dir / run_name))
-    best_weights = run_dir / "weights" / "best.pt"
-    last_weights = run_dir / "weights" / "last.pt"
-    checkpoint_path = best_weights if best_weights.exists() else last_weights
+    mlflow_tags = {"task": "train", "model_weights": str(model_config["weights"])}
+    with mlflow_run(experiment="train", run_name=run_name, tags=mlflow_tags):
+        log_params({
+            "seed": config["seed"],
+            "model": model_config["weights"],
+            "train": train_config,
+            "eval": config["eval"],
+        })
 
-    if checkpoint_path.exists():
-        best_model = get_model(str(checkpoint_path))
-    else:
-        best_model = model
+        train_results = model.train(**train_args)
+        run_dir = Path(getattr(train_results, "save_dir", project_dir / run_name))
+        best_weights = run_dir / "weights" / "best.pt"
+        last_weights = run_dir / "weights" / "last.pt"
+        checkpoint_path = best_weights if best_weights.exists() else last_weights
 
-    val_results = best_model.val(**build_eval_args(config, run_dir, "val"))
-    test_results = best_model.val(**build_eval_args(config, run_dir, "test"))
+        if checkpoint_path.exists():
+            best_model = get_model(str(checkpoint_path))
+        else:
+            best_model = model
 
-    snapshot = copy.deepcopy(config)
-    snapshot["run_name"] = run_name
-    config_snapshot_path = run_dir / "config.yaml"
-    write_yaml(config_snapshot_path, snapshot)
+        val_results = best_model.val(**build_eval_args(config, run_dir, "val"))
+        test_results = best_model.val(**build_eval_args(config, run_dir, "test"))
 
-    result = {
-        "config_path": str(Path(config_path).resolve()) if config_path else None,
-        "config_snapshot": str(config_snapshot_path.resolve()),
-        "dataset_root": config["data"]["dataset_root"],
-        "data_yaml": str(data_yaml_path.resolve()),
-        "split_summary": str(get_split_summary_path(config).resolve()),
-        "run_name": run_name,
-        "run_dir": str(run_dir.resolve()),
-        "checkpoint_path": str(checkpoint_path.resolve()) if checkpoint_path.exists() else None,
-        "best_weights": str(best_weights.resolve()),
-        "last_weights": str(last_weights.resolve()),
-        "train_metrics": extract_metrics(train_results),
-        "val_metrics": extract_metrics(val_results),
-        "test_metrics": extract_metrics(test_results),
-    }
+        train_metrics = extract_metrics(train_results)
+        val_metrics = extract_metrics(val_results)
+        test_metrics = extract_metrics(test_results)
 
-    result_path = run_dir / "result.json"
-    write_json(result_path, result)
+        if train_metrics.get("results_dict"):
+            log_metrics({"train." + k: v for k, v in train_metrics["results_dict"].items()})
+        if val_metrics.get("results_dict"):
+            log_metrics({"val." + k: v for k, v in val_metrics["results_dict"].items()})
+        if test_metrics.get("results_dict"):
+            log_metrics({"test." + k: v for k, v in test_metrics["results_dict"].items()})
+
+        snapshot = copy.deepcopy(config)
+        snapshot["run_name"] = run_name
+        config_snapshot_path = run_dir / "config.yaml"
+        write_yaml(config_snapshot_path, snapshot)
+
+        result = {
+            "config_path": str(Path(config_path).resolve()) if config_path else None,
+            "config_snapshot": str(config_snapshot_path.resolve()),
+            "dataset_root": config["data"]["dataset_root"],
+            "data_yaml": str(data_yaml_path.resolve()),
+            "split_summary": str(get_split_summary_path(config).resolve()),
+            "run_name": run_name,
+            "run_dir": str(run_dir.resolve()),
+            "checkpoint_path": str(checkpoint_path.resolve()) if checkpoint_path.exists() else None,
+            "best_weights": str(best_weights.resolve()),
+            "last_weights": str(last_weights.resolve()),
+            "train_metrics": train_metrics,
+            "val_metrics": val_metrics,
+            "test_metrics": test_metrics,
+        }
+
+        result_path = run_dir / "result.json"
+        write_json(result_path, result)
+
     return result_path
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="configs/baseline.yaml")
-    parser.add_argument("--name", default=None)
-    args = parser.parse_args()
-
-    config = load_config(args.config)
-    result_path = run_training(config, args.config, args.name)
-    print(result_path)
+@click.command(context_settings={"help_option_names": ["-h", "--help"]})
+@click.option("--config", type=click.Path(path_type=Path), default=Path("configs/baseline.yaml"), show_default=True)
+@click.option("--name", default=None)
+def main(config, name):
+    config = Path(config)
+    loaded_config = load_config(config)
+    result_path = run_training(loaded_config, config, name)
+    click.echo(result_path)
 
 
 if __name__ == "__main__":

@@ -219,3 +219,10 @@ __marimo__/
 data/
 
 runs/
+
+mlflow_data/
+
+splits/
+
+reports/data_audit*.json
+

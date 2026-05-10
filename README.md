@@ -70,6 +70,19 @@ python -m src.eval \
   --model runs/<run_name>/weights/best.pt
 ```
 
+Run evaluation on only part of the test split and save ground truth plus predictions:
+
+```bash
+python -m src.eval \
+  --config configs/baseline.yaml \
+  --model runs/<run_name>/weights/best.pt \
+  --split test \
+  --limit 64 \
+  --save-gt-pred
+```
+
+This writes `result.json`, `<split>_subset.txt`, `gt.json`, and `pred.json` into the run directory.
+
 # Run Inference
 
 With config:

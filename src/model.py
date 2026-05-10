@@ -7,7 +7,7 @@ def get_model(
     weights="yolov8n.pt",
     output_dir=None,
 ):
-    if output_dir is not None:
+    if output_dir is not None and Path(weights).suffix == ".pt":
         settings.update({"weights_dir": str(Path(output_dir).resolve())})
 
     weights_path = Path(weights)

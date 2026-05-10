@@ -1,26 +1,23 @@
-import argparse
-import json
-import sys
-from datetime import datetime
+import click
 from pathlib import Path
 
 import yaml
 
 from src.model import get_model
+from src.mlflow_logger import log_metrics, log_params, mlflow_run
+from src.utils import (
+    ROOT,
+    make_run_name,
+    pick,
+    resolve_path,
+    write_json,
+)
 
-ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_LOCAL_MODEL = ROOT / "models" / "best_yolo_auto_trasnport.pt"
 DEFAULT_MODEL = DEFAULT_LOCAL_MODEL
 DEFAULT_SOURCE = ROOT / "splits" / "self_driving_car" / "test.txt"
 DEFAULT_FALLBACK_SOURCE = ROOT / "data" / "Self-Driving-Car-3" / "export" / "images"
 DEFAULT_PROJECT = ROOT / "runs"
-
-
-def resolve_path(value, base=ROOT):
-    path = Path(value)
-    if path.is_absolute():
-        return path.resolve()
-    return (Path(base) / path).resolve()
 
 
 def load_config(config_path):
@@ -52,32 +49,6 @@ def load_config(config_path):
 
     config.setdefault("name", None)
     return config
-
-
-def make_run_name(name=None):
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    name = (name or "").strip().replace(" ", "_")
-    if not name:
-        return stamp
-    return f"{stamp}_{name}"
-
-
-def write_json(path, payload):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-
-
-def has_arg(flag):
-    return flag in sys.argv or any(value.startswith(flag + "=") for value in sys.argv[1:])
-
-
-def pick(flag, cli_value, config_value, default=None):
-    if has_arg(flag):
-        return cli_value
-    if config_value is not None:
-        return config_value
-    return default
 
 
 def get_source(source):
@@ -134,44 +105,42 @@ def build_summary(results, model_path, source_path, run_dir):
     }
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default=None)
-    parser.add_argument("--model", default=None)
-    parser.add_argument("--source", default=None)
-    parser.add_argument("--project", default=None)
-    parser.add_argument("--name", default=None)
-    parser.add_argument("--imgsz", type=int, default=None)
-    parser.add_argument("--conf", type=float, default=None)
-    parser.add_argument("--iou", type=float, default=None)
-    parser.add_argument("--device", default=None)
-    parser.add_argument("--exist-ok", action="store_true")
-    parser.add_argument("--save-txt", action="store_true")
-    parser.add_argument("--save-conf", action="store_true")
-    parser.add_argument("--verbose", action="store_true")
-    args = parser.parse_args()
-
-    config = load_config(args.config) if args.config else None
+@click.command(context_settings={"help_option_names": ["-h", "--help"]})
+@click.option("--config", type=click.Path(path_type=Path), default=None)
+@click.option("--model", type=click.Path(path_type=Path), default=None)
+@click.option("--source", type=click.Path(path_type=Path), default=None)
+@click.option("--project", type=click.Path(path_type=Path), default=None)
+@click.option("--name", default=None)
+@click.option("--imgsz", type=int, default=None)
+@click.option("--conf", type=float, default=None)
+@click.option("--iou", type=float, default=None)
+@click.option("--device", default=None)
+@click.option("--exist-ok/--no-exist-ok", default=None)
+@click.option("--save-txt/--no-save-txt", default=None)
+@click.option("--save-conf/--no-save-conf", default=None)
+@click.option("--verbose/--no-verbose", default=None)
+def main(config, model, source, project, name, imgsz, conf, iou, device, exist_ok, save_txt, save_conf, verbose):
+    config = load_config(config) if config else None
     inference_config = config["inference"] if config else {}
     project_config = config["project"] if config else {}
 
-    model_value = pick("--model", args.model, inference_config.get("model") if config else None, str(DEFAULT_MODEL))
-    source_value = pick("--source", args.source, inference_config.get("source") if config else None, None)
-    project_value = pick("--project", args.project, project_config.get("runs_dir") if config else None, str(DEFAULT_PROJECT))
-    imgsz_value = pick("--imgsz", args.imgsz, inference_config.get("imgsz") if config else None, 640)
-    conf_value = pick("--conf", args.conf, inference_config.get("conf") if config else None, 0.25)
-    iou_value = pick("--iou", args.iou, inference_config.get("iou") if config else None, 0.7)
-    device_value = pick("--device", args.device, inference_config.get("device") if config else None, None)
+    model_value = pick(model, inference_config.get("model") if config else None, str(DEFAULT_MODEL))
+    source_value = pick(source, inference_config.get("source") if config else None, None)
+    project_value = pick(project, project_config.get("runs_dir") if config else None, str(DEFAULT_PROJECT))
+    imgsz_value = pick(imgsz, inference_config.get("imgsz") if config else None, 640)
+    conf_value = pick(conf, inference_config.get("conf") if config else None, 0.25)
+    iou_value = pick(iou, inference_config.get("iou") if config else None, 0.7)
+    device_value = pick(device, inference_config.get("device") if config else None, None)
 
     if config:
-        name_value = make_run_name(args.name if args.name is not None else config.get("name"))
+        name_value = make_run_name(name if name is not None else config.get("name"))
     else:
-        name_value = args.name or "inference"
+        name_value = name or "inference"
 
-    exist_ok_value = args.exist_ok or (inference_config.get("exist_ok", False) if config else False)
-    save_txt_value = args.save_txt or (inference_config.get("save_txt", False) if config else False)
-    save_conf_value = args.save_conf or (inference_config.get("save_conf", False) if config else False)
-    verbose_value = args.verbose or (inference_config.get("verbose", False) if config else False)
+    exist_ok_value = pick(exist_ok, inference_config.get("exist_ok") if config else None, False)
+    save_txt_value = pick(save_txt, inference_config.get("save_txt") if config else None, False)
+    save_conf_value = pick(save_conf, inference_config.get("save_conf") if config else None, False)
+    verbose_value = pick(verbose, inference_config.get("verbose") if config else None, False)
 
     model_path = Path(model_value).resolve()
     source_path = get_source(source_value)
@@ -196,19 +165,37 @@ def main():
     if device_value is not None:
         predict_args["device"] = device_value
 
-    results = model.predict(**predict_args)
+    mlflow_tags = {"task": "inference", "model": str(model_path)}
+    with mlflow_run(experiment="inference", run_name=name_value, tags=mlflow_tags):
+        log_params({
+            "model": str(model_path),
+            "source": str(source_path),
+            "imgsz": imgsz_value,
+            "conf": conf_value,
+            "iou": iou_value,
+        })
 
-    if results:
-        run_dir = Path(results[0].save_dir)
-    else:
-        run_dir = project_path / name_value
-        run_dir.mkdir(parents=True, exist_ok=True)
+        results = model.predict(**predict_args)
 
-    summary = build_summary(results, model_path, source_path, run_dir)
-    result_path = run_dir / "result.json"
-    write_json(result_path, summary)
+        if results:
+            run_dir = Path(results[0].save_dir)
+        else:
+            run_dir = project_path / name_value
+            run_dir.mkdir(parents=True, exist_ok=True)
 
-    print(result_path)
+        summary = build_summary(results, model_path, source_path, run_dir)
+        result_path = run_dir / "result.json"
+        write_json(result_path, summary)
+
+        num_images = summary["num_images"]
+        total_boxes = sum(len(p["boxes"]) for p in summary["predictions"])
+        log_metrics({
+            "num_images": float(num_images),
+            "total_detections": float(total_boxes),
+            "avg_detections_per_image": float(total_boxes / num_images) if num_images else 0.0,
+        })
+
+    click.echo(result_path)
 
 
 if __name__ == "__main__":
