@@ -1,0 +1,74 @@
+{
+  "tau": 0.25,
+  "per_category": 12,
+  "categories": {
+    "false_positive": {
+      "available": 1485,
+      "selected": [
+        "1478732645545338184_jpg.rf.18dac861ccf3ea67f5f9bd01cc9493e8.jpg",
+        "1478732645545338184_jpg.rf.SIHMR2zhX3qfMbJCrJLy.jpg",
+        "1478899402050094876_jpg.rf.1fN4jOM6YGnVZubkqJzm.jpg",
+        "1478899402050094876_jpg.rf.3e5d8943bf41b35b44ef63726d4c1bed.jpg",
+        "1478897292276911194_jpg.rf.aVwsojnNsAXjpZTf9Pmk.jpg",
+        "1478897292276911194_jpg.rf.b2f9e509cf8842ff2210f1277cd8d1da.jpg",
+        "1478900435513723583_jpg.rf.SA58w5Wx7ty4PYdKA7oC.jpg",
+        "1478732066899902409_jpg.rf.RJ2Z8fts8dQJbzGR2qKq.jpg",
+        "1478020399196566235_jpg.rf.3e5e41561b54828c47cfb6de6e67251c.jpg",
+        "1478896928365423291_jpg.rf.PFStR6uWLNR1gonDNDgj.jpg",
+        "1478896708991054110_jpg.rf.SH5SQN7Wgkd4Vhc2tjDs.jpg",
+        "1478896278237701023_jpg.rf.fbad79e88de2f32a0758a829bb8bf9bf.jpg"
+      ]
+    },
+    "false_negative": {
+      "available": 1786,
+      "selected": [
+        "1478020421204833659_jpg.rf.7b34e9f31ae174d63d040610d51f8391.jpg",
+        "1478020421204833659_jpg.rf.YUVp5gwr4xp4kF0tWHo5.jpg",
+        "1478899611713074447_jpg.rf.ctspQ2a3uFqb965WlFTH.jpg",
+        "1478020424204607447_jpg.rf.175ce01f0b4ba6cd006fe45feeea95ad.jpg",
+        "1478020424204607447_jpg.rf.BZP545XZEd0NiGEQjK3S.jpg",
+        "1478899611713074447_jpg.rf.abc79c1649a21a3898eb690cedd17c60.jpg",
+        "1478732000375354870_jpg.rf.9Zuz5OysHXM5m8CFu2Cn.jpg",
+        "1478899938490961059_jpg.rf.3fdda9325f1d0df9d69b9e943bec672a.jpg",
+        "1478021609581763199_jpg.rf.15Z7zET0ioyvztMCU06E.jpg",
+        "1478899515165401391_jpg.rf.yncRfrHjjFDvNl5UzZ0W.jpg",
+        "1478899957914429833_jpg.rf.1d80d9c02d3f7bf74f80fc06cca950dd.jpg",
+        "1478898364588139921_jpg.rf.spOt4j5i0AzocSZANn0a.jpg"
+      ]
+    },
+    "true_positive": {
+      "available": 2550,
+      "selected": [
+        "1478898096652684985_jpg.rf.2cf3b740a7470409e2b5749633a18f87.jpg",
+        "1478898096652684985_jpg.rf.hgdfzdEL1Q3z1DzdFibQ.jpg",
+        "1478898074373215574_jpg.rf.3d4f5a15536f89f62683c57925254669.jpg",
+        "1478898074373215574_jpg.rf.batC801bsONqFbMb6hst.jpg",
+        "1478898079515877064_jpg.rf.c8e94a7bab3a803045ed0c2ef9aef982.jpg",
+        "1478898079515877064_jpg.rf.gd1e5lsAv05PTqebEIyj.jpg",
+        "1478021878581596902_jpg.rf.964024ea15077095b27bf86816f37042.jpg",
+        "1478901101066210121_jpg.rf.dda958c2e0266b986cc569b012e3ffa9.jpg",
+        "1478899009573372358_jpg.rf.fef5e0ff2935c50282637f236f1db290.jpg",
+        "1478020536705592706_jpg.rf.WylPwFS5GPhG4s1T8ZjN.jpg",
+        "1478020519709209110_jpg.rf.9oG3dZ5g4yhIR4GYEE9M.jpg",
+        "1478022263593108715_jpg.rf.8d20aea28851dca7172d5dc1b4157b9e.jpg"
+      ]
+    },
+    "true_negative": {
+      "available": 371,
+      "selected": [
+        "1478021667076215878_jpg.rf.ea6b123a7817f8810f1b875ff7732d2b.jpg",
+        "1478021667076215878_jpg.rf.zlcdX5jP8KZPfmxwNxhU.jpg",
+        "1478732997089759981_jpg.rf.d93269bf5deff20a100f1f19ab553ed2.jpg",
+        "1478732997089759981_jpg.rf.wrPgjOxECM1ptuv9ikjg.jpg",
+        "1478732998238139651_jpg.rf.b6c91686074a70b1a78c2d1d2f3d8eff.jpg",
+        "1478732998238139651_jpg.rf.sRZtN6s6TPoDK3iNbKn0.jpg",
+        "1478895556127311073_jpg.rf.RqN8VMW3AXtl3mJY6TP2.jpg",
+        "1478895580693486925_jpg.rf.cbf8aa6044e715aacf122fbba71f48d9.jpg",
+        "1478896152554121103_jpg.rf.8af0bc7a5edc38a9133df784b5825cb8.jpg",
+        "1478898851898470326_jpg.rf.ltk5HfBo9NHdScb6nwlY.jpg",
+        "1478895254487152042_jpg.rf.bVdQbWAqbrVDCU4UgRD6.jpg",
+        "1478898164636421519_jpg.rf.68c90be17d46a29254f211e200de142b.jpg"
+      ]
+    }
+  }
+}

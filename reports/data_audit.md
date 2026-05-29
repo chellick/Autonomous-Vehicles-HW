@@ -223,7 +223,7 @@ Separating model errors from dataset artifacts is not fully possible without re-
 
 ## 6. Sensitivity to the split protocol
 
-The one change tested here is switching the split unit from individual image to source_key group. Everything else is held fixed: the same model weights (`best_yolo_auto_trasnport.pt`), the same evaluation hyperparameters (conf=0.001, IoU=0.6), and the same total pool of 29,800 frames.
+The one change tested here is switching the split unit from individual image to source_key group. Everything else is held fixed: the same model weights (`best_yolo_auto_transport.pt`), the same evaluation hyperparameters (conf=0.001, IoU=0.6), and the same total pool of 29,800 frames.
 
 Image-split test (2,980 frames, 74.3% source_key overlap with train): precision 0.845, recall 0.580, mAP50 0.659, mAP50-95 0.359.
 
